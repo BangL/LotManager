@@ -9,9 +9,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.SignChangeEvent;
 
 public class LotManagerSignListener implements Listener {
-    public static LotManager plugin;
+    public static LotManagerPlugin plugin;
 
-    public LotManagerSignListener(LotManager instance) {
+    public LotManagerSignListener(LotManagerPlugin instance) {
         plugin = instance;
     }
 
@@ -29,8 +29,8 @@ public class LotManagerSignListener implements Listener {
                 return;
             }
 
-            if (!LotManager.hasPermission(player, "lotmanager.sign.create")) {
-                LotManager.sendError(player, "You don't have the permission to create lot signs!");
+            if (!LotManagerPlugin.hasPermission(player, "lotmanager.sign.create")) {
+                LotManagerPlugin.sendError(player, "You don't have the permission to create lot signs!");
                 event.setCancelled(true);
                 return;
             }
@@ -38,7 +38,7 @@ public class LotManagerSignListener implements Listener {
             String lotName = event.getLine(1);
 
             if (lotName.equals("")) {
-                LotManager.sendError(player, "Type a lot name on the second line, idiot!");
+                LotManagerPlugin.sendError(player, "Type a lot name on the second line, idiot!");
                 event.setCancelled(true);
                 return;
             }
@@ -53,14 +53,14 @@ public class LotManagerSignListener implements Listener {
             World world;
             world = plugin.server.getWorld(worldName);
             if (world == null) {
-                LotManager.sendError(player, "Invalid world name: \"" + worldName + "\"");
+                LotManagerPlugin.sendError(player, "Invalid world name: \"" + worldName + "\"");
                 event.setCancelled(true);
                 return;
             }
             Integer worldId;
             worldId = plugin.lots.getWorldId(world);
             if (!plugin.lots.existsLot(worldId, lotName)) {
-                LotManager.sendError(player, "\"" + lotName + "\" is not a valid lot, you fucking fool!");
+                LotManagerPlugin.sendError(player, "\"" + lotName + "\" is not a valid lot, you fucking fool!");
                 event.setCancelled(true);
                 return;
             }
@@ -71,7 +71,7 @@ public class LotManagerSignListener implements Listener {
             plugin.addSign(lotName, event.getBlock());
             plugin.refreshSigns(lotName, Boolean.valueOf(true));
 
-            LotManager.sendInfo(player, "Lot sign created!");
+            LotManagerPlugin.sendInfo(player, "Lot sign created!");
         }
     }
 }

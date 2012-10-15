@@ -6,9 +6,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 
 public class LotManagerBlockListener implements Listener {
-    public LotManager plugin;
+    public LotManagerPlugin plugin;
 
-    public LotManagerBlockListener(LotManager instance) {
+    public LotManagerBlockListener(LotManagerPlugin instance) {
         plugin = instance;
     }
 

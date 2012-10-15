@@ -5,7 +5,7 @@ author: BangL
 website: http://bangl.de/
 depend: [WorldEdit, WorldGuard, Vault]
 database: true
-main: de.bangl.LotManager.LotManager
+main: de.bangl.lm.LotManagerPlugin
 
 commands:
   getlot:

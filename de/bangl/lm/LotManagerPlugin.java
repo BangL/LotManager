@@ -37,7 +37,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  *
  * @author BangL
  */
-public class LotManager extends JavaPlugin {
+public class LotManagerPlugin extends JavaPlugin {
     public PluginManager pm;
     public Server server;
     public LotManagerDatabase lots;
@@ -84,12 +84,7 @@ public class LotManager extends JavaPlugin {
         } catch (Exception e3) {
             logError(e3.getMessage());
         }
-        boolean mkdir;
-        mkdir = new File(this.dataFolder).mkdir();
-        if (!mkdir) {
-            logError("Cannot create folder.");
-            setEnabled(false);
-        }
+        new File(this.dataFolder).mkdir();
         loadConfig();
         try {
             this.lots.sqlClass();
