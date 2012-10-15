@@ -1,0 +1,108 @@
+name: LotManager
+version: 1.6
+description: WorldGuard extension to manage lots/cities
+author: BangL
+website: http://bangl.de/
+depend: [WorldEdit, WorldGuard, Vault]
+database: true
+main: de.bangl.LotManager.LotManager
+
+commands:
+  getlot:
+    usage: /<command> [lotname] (world)
+    permission: lotmanager.getlot
+  lotprice:
+    usage: /<command> [lotname] (world)
+    permission: lotmanager.getlot
+  mylot:
+    usage: /<command>
+    permission: lotmanager.mylot
+  mylots:
+    usage: /<command>
+    permission: lotmanager.mylot
+  lotgroupupdate:
+    usage: /<command> [lotgroupname] [limit] [lot_price]
+    permission: lotmanager.groupupdate
+  lotgroupdefine:
+    usage: /<command> [lotgroupname] [limit] [lot_price]
+    permission: lotmanager.groupdefine
+  lotgroupundefine:
+    usage: /<command> [lotgroupname]
+    permission: lotmanager.groupundefine
+  lotupdate:
+    usage: /<command> [lotname] [lotgroup] (world)
+    permission: lotmanager.update
+  lotdefine:
+    usage: /<command> [lotname] [lotgroup] (world)
+    permission: lotmanager.define
+  lotundefine:
+    usage: /<command> [lotname] (world)
+    permission: lotmanager.undefine
+  clearlot:
+    usage: /<command> [lotname] (world)
+    permission: lotmanager.clearlot
+  haslot:
+    usage: /<command> [username]
+    permission: lotmanager.haslot
+  haslots:
+    usage: /<command> [username]
+    permission: lotmanager.haslot
+  listlots:
+    usage: /<command>
+    permission: lotmanager.list
+  listlotgroups:
+    usage: /<command>
+    permission: lotmanager.list
+  savelots:
+    usage: /<command>
+    permission: lotmanager.savelots
+  reloadlots:
+    usage: /<command>
+    permission: lotmanager.reloadlots
+
+permissions:
+  lotmanager.*:
+    default: false
+    children:
+      lotmanager.getlot: true
+      lotmanager.mylot: true
+      lotmanager.groupupdate: true
+      lotmanager.groupdefine: true
+      lotmanager.groupundefine: true
+      lotmanager.update: true
+      lotmanager.define: true
+      lotmanager.undefine: true
+      lotmanager.clearlot: true
+      lotmanager.haslot: true
+      lotmanager.list: true
+      lotmanager.savelots: true
+      lotmanager.reloadlots: true
+  lotmanager.getlot:
+    default: true
+    children:
+      lotmanager.mylot: true
+  lotmanager.mylot:
+    default: true
+  lotmanager.haslot:
+    default: true
+  lotmanager.groupupdate:
+    default: op
+  lotmanager.groupdefine:
+    default: op
+  lotmanager.groupundefine:
+    default: op
+  lotmanager.update:
+    default: op
+  lotmanager.define:
+    default: op
+  lotmanager.undefine:
+    default: op
+  lotmanager.clearlot:
+    default: op
+  lotmanager.list:
+    default: op
+  lotmanager.savelots:
+    default: op
+  lotmanager.reloadlots:
+    default: op
+    
