@@ -4,7 +4,6 @@ description: WorldGuard extension to manage lots/cities
 author: BangL
 website: http://bangl.de/
 depend: [WorldEdit, WorldGuard, Vault]
-database: true
 main: de.bangl.lm.LotManagerPlugin
 
 commands:
