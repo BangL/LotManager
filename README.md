@@ -1,4 +1,4 @@
 LotManager
 ==========
 
-WorldGuard extension to manage lots/cities
+WorldGuard extension to manage lots/cities.

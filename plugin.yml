@@ -1,10 +1,11 @@
 name: LotManager
-version: 1.6.1
-description: WorldGuard extension to manage lots/cities
-author: BangL
-website: http://bangl.de/
-depend: [WorldEdit, WorldGuard, Vault]
 main: de.bangl.lm.LotManagerPlugin
+description: WorldGuard extension to manage lots/cities.
+version: 1.6.1
+
+authors: [ BangL ]
+depend: [ WorldGuard, Vault ]
+softdepend: [ WorldEdit ]
 
 commands:
   getlot:
@@ -16,9 +17,7 @@ commands:
   mylot:
     usage: /<command>
     permission: lotmanager.mylot
-  mylots:
-    usage: /<command>
-    permission: lotmanager.mylot
+    aliases: [ mylots ]
   lotgroupupdate:
     usage: /<command> [lotgroupname] [limit] [lot_price]
     permission: lotmanager.groupupdate
@@ -43,9 +42,7 @@ commands:
   haslot:
     usage: /<command> [username]
     permission: lotmanager.haslot
-  haslots:
-    usage: /<command> [username]
-    permission: lotmanager.haslot
+    aliases: [ haslots ]
   listlots:
     usage: /<command>
     permission: lotmanager.list
