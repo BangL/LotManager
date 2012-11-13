@@ -114,7 +114,7 @@ public class LotManagerDatabase {
         String query;
 
         // Load LotGroups
-        lotgroups = new HashMap<>();
+        lotgroups = new HashMap<String, LotGroup>();
         query = "SELECT * FROM `" + tablePref + "lotgroups`";
         ResultSet resultSet = SELECT(query);
         while (resultSet.next()) {
@@ -127,7 +127,7 @@ public class LotManagerDatabase {
         lotgroups.put("Default", new LotGroup("Default", 1, 0.0));
 
         // Load Lots
-        this.lots = new HashMap<>();
+        this.lots = new HashMap<String, Lot>();
         query = "SELECT * FROM `" + tablePref + "lots`";
          resultSet = SELECT(query);
         while (resultSet.next()) {
@@ -141,7 +141,7 @@ public class LotManagerDatabase {
         }
 
         // Load Worlds
-        worlds = new HashMap<>();
+        worlds = new HashMap<String, Integer>();
         query = "SELECT * FROM `world`";
         resultSet = SELECT(query);
         while (resultSet.next()) {
@@ -182,7 +182,7 @@ public class LotManagerDatabase {
         }
 
         HashMap<String, LotGroup> tmplotgroups;
-        tmplotgroups = new HashMap<>();
+        tmplotgroups = new HashMap<String, LotGroup>();
         query = "SELECT * FROM `" + tablePref + "lotgroups`";
         ResultSet rs = SELECT(query);
         while (rs.next()) {
@@ -226,7 +226,7 @@ public class LotManagerDatabase {
         }
 
         HashMap<String, Lot> tmplots;
-        tmplots = new HashMap<>();
+        tmplots = new HashMap<String, Lot>();
         query = "SELECT * FROM `" + tablePref + "lots`";
         rs = SELECT(query);
         while (rs.next()) {

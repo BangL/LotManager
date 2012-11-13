@@ -1,7 +1,7 @@
 name: LotManager
 main: de.bangl.lm.LotManagerPlugin
 description: WorldGuard extension to manage lots/cities.
-version: 1.6.1
+version: 1.7
 
 authors: [ BangL ]
 depend: [ WorldGuard, Vault ]

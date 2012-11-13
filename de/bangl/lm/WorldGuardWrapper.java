@@ -41,7 +41,7 @@ public class WorldGuardWrapper {
         }
         this.wg = ((WorldGuardPlugin)wgp);
 
-        this.rm = new HashMap<>();
+        this.rm = new HashMap<String, RegionManager>();
         for (World world : worlds) {
             RegionManager r = this.wg.getRegionManager(world);
             this.rm.put(world.getName(), r);

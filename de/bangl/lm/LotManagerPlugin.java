@@ -65,7 +65,7 @@ public class LotManagerPlugin extends JavaPlugin {
     private final LotManagerSignListener signListener = new LotManagerSignListener(this);
     private final LotManagerBlockListener blockListener = new LotManagerBlockListener(this);
 
-    private HashMap<String, ArrayList<Block>> signs = new HashMap<>();
+    private HashMap<String, ArrayList<Block>> signs = new HashMap<String, ArrayList<Block>>();
 
     private boolean setupEconomy() {
         try {
@@ -126,14 +126,19 @@ public class LotManagerPlugin extends JavaPlugin {
                 setEnabled(false);
                 return;
             }
-        } catch (ClassNotFoundException | SQLException e) {
+        } catch (ClassNotFoundException e) {
+            logError("Tablecheck failed!");
+            setEnabled(false);
+        } catch (SQLException e) {
             logError("Tablecheck failed!");
             setEnabled(false);
         }
         try {
             this.lots.load();
-        } catch (ClassNotFoundException | SQLException e2) {
-            logError(e2.getMessage());
+        } catch (ClassNotFoundException e) {
+            logError(e.getMessage());
+        } catch (SQLException e) {
+            logError(e.getMessage());
         }
         try {
             this.wg = new WorldGuardWrapper(this.pm, this.server.getWorlds());
@@ -198,8 +203,11 @@ public class LotManagerPlugin extends JavaPlugin {
             this.wg.save();
             this.lots.save();
             saveSigns();
-        }
-        catch (ClassNotFoundException | SQLException | ProtectionDatabaseException e) {
+        } catch (ClassNotFoundException e) {
+            logError(e.getMessage());
+        } catch (SQLException e) {
+            logError(e.getMessage());
+        } catch (ProtectionDatabaseException e) {
             logError(e.getMessage());
         }
     }
@@ -472,7 +480,10 @@ public class LotManagerPlugin extends JavaPlugin {
         {
             this.lots.save();
             sendInfo(sender, "Lots saved.");
-        } catch (ClassNotFoundException | SQLException e) {
+        } catch (ClassNotFoundException e) {
+            logError(e.getMessage());
+            sendError(sender, e.getMessage());
+        } catch (SQLException e) {
             logError(e.getMessage());
             sendError(sender, e.getMessage());
         }
@@ -482,7 +493,10 @@ public class LotManagerPlugin extends JavaPlugin {
         try {
             this.lots.load();
             sendInfo(sender, "Lots reloaded.");
-        } catch (ClassNotFoundException | SQLException e) {
+        } catch (ClassNotFoundException e) {
+            logError(e.getMessage());
+            sendError(sender, e.getMessage());
+        } catch (SQLException e) {
             logError(e.getMessage());
             sendError(sender, e.getMessage());
         }
@@ -718,7 +732,7 @@ public class LotManagerPlugin extends JavaPlugin {
     public void hasLot(CommandSender sender, Player player) {
         try {
             List<Lot> userlots;
-            userlots = new ArrayList<>();
+            userlots = new ArrayList<Lot>();
             List<World> worlds;
             worlds = this.getServer().getWorlds();
             for (World world: worlds) {
@@ -738,7 +752,7 @@ public class LotManagerPlugin extends JavaPlugin {
                 }
             }
             if (!userlots.isEmpty()) {
-                List<LotGroup> groups = new ArrayList<>();
+                List<LotGroup> groups = new ArrayList<LotGroup>();
                 for (Lot lot: userlots) {
                     LotGroup group = lot.getGroup();
                     if (!groups.contains(group.getId())) {
@@ -766,7 +780,7 @@ public class LotManagerPlugin extends JavaPlugin {
     public void myLots(Player player) {
         try {
             List<Lot> userlots;
-            userlots = new ArrayList<>();
+            userlots = new ArrayList<Lot>();
             List<World> worlds = server.getWorlds();
             for (World world: worlds) {
                 Integer WorldId = this.lots.getWorldId(world);
@@ -783,7 +797,7 @@ public class LotManagerPlugin extends JavaPlugin {
                 }
             }
             if (!userlots.isEmpty()) {
-                List<LotGroup> groups = new ArrayList<>();
+                List<LotGroup> groups = new ArrayList<LotGroup>();
                 for (Lot lot: userlots) {
                     LotGroup group = lot.getGroup();
                     if (!groups.contains(group.getId())) {
@@ -1090,7 +1104,7 @@ public class LotManagerPlugin extends JavaPlugin {
     public void addSign(String lotName, Block block) {
         ArrayList<Block> blocks = signs.get(lotName);
         if(blocks == null) {
-            ArrayList<Block> newBlocks = new ArrayList<>();
+            ArrayList<Block> newBlocks = new ArrayList<Block>();
             newBlocks.add(block);
             signs.put(lotName, newBlocks);
         } else {
@@ -1123,7 +1137,9 @@ public class LotManagerPlugin extends JavaPlugin {
             vout = new BufferedWriter(new FileWriter(signsFile));
             vout.write(store);
             vout.close();
-        } catch (IOException | SecurityException ex) {
+        } catch (IOException ex) {
+            logError(ex.getMessage());
+        } catch (SecurityException ex) {
             logError(ex.getMessage());
         }
     }
@@ -1168,7 +1184,7 @@ public class LotManagerPlugin extends JavaPlugin {
 
                     ArrayList<Block> blocks = signs.get(lot);
                     if(blocks == null) {
-                        ArrayList<Block> newBlocksList = new ArrayList<>();
+                        ArrayList<Block> newBlocksList = new ArrayList<Block>();
                         newBlocksList.add(dataBlock);
                         signs.put(lot, newBlocksList);
                     } else {
