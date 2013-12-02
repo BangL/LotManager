@@ -16,6 +16,8 @@
  */
 package de.bangl.lm;
 
+import com.earth2me.essentials.Essentials;
+import com.earth2me.essentials.User;
 import com.sk89q.worldguard.domains.DefaultDomain;
 import com.sk89q.worldguard.protection.databases.ProtectionDatabaseException;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
@@ -28,7 +30,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -37,6 +41,7 @@ import java.util.logging.Level;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -45,6 +50,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -58,12 +64,13 @@ public class LotManagerPlugin extends JavaPlugin {
     public Server server;
     public LotManagerDatabase lots;
     public WorldGuardWrapper wg;
+    public Essentials ess;
     public Economy eco;
     public String dataFolder = "plugins" + File.separator + "LotManager";
     public File signsFile = new File(this.dataFolder + File.separator + "signs");
+    public boolean hasEssentials = false;
 
-    private final LotManagerSignListener signListener = new LotManagerSignListener(this);
-    private final LotManagerBlockListener blockListener = new LotManagerBlockListener(this);
+    private final LotManagerListener eventListener = new LotManagerListener(this);
 
     private HashMap<String, ArrayList<Block>> signs = new HashMap<String, ArrayList<Block>>();
 
@@ -89,6 +96,12 @@ public class LotManagerPlugin extends JavaPlugin {
     public void onEnable() {
         this.server = getServer();
         this.pm = this.server.getPluginManager();
+
+        Plugin ess = pm.getPlugin("Essentials");
+        if (ess != null && ess instanceof Essentials) {
+            this.hasEssentials = true;
+            this.ess = (Essentials) ess;
+        }
 
         if (!setupEconomy() ) {
             logError("Disabled due to no Vault dependency found!");
@@ -173,8 +186,7 @@ public class LotManagerPlugin extends JavaPlugin {
         if (this.signsFile.exists()) {
             loadSigns();
         }
-        this.pm.registerEvents(this.signListener, this);
-        this.pm.registerEvents(this.blockListener, this);
+        this.pm.registerEvents(this.eventListener, this);
     }
 
     public void loadConfig() {
@@ -221,8 +233,7 @@ public class LotManagerPlugin extends JavaPlugin {
      * @return
      */
     @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args)
-    {
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         Player player;
         player = null;
         if (sender instanceof Player) {
@@ -424,7 +435,12 @@ public class LotManagerPlugin extends JavaPlugin {
                 sendError(sender, "Not enough arguments!");
                 return false;
             }
-            hasLot(sender, getServer().getPlayer(args[0]));
+            final OfflinePlayer offlineplayer = getServer().getOfflinePlayer(args[0]);
+            if (offlineplayer == null) {
+                sender.sendMessage(ChatColor.RED + args[0] + " is not a valid player name.");
+            } else {
+                hasLot(sender, offlineplayer);
+            }
             return true;
         } else if (cmd.getName().equalsIgnoreCase("listlots")) {
             if (!hasPermission(sender, "lotmanager.listlots")) {
@@ -470,14 +486,50 @@ public class LotManagerPlugin extends JavaPlugin {
             }
             reloadLots(sender);
             return true;
+        } else if (cmd.getName().equalsIgnoreCase("inactivelots")) {
+            if (!hasPermission(sender, "lotmanager.inactivelots")) {
+                sendError(sender, "No Permission!");
+                return false;
+            }
+            if (args.length > 0) {
+                sendError(sender, "Too many arguments!");
+                return false;
+            }
+            if (args.length == 0) {
+                getInactiveLotList(sender);
+            }
+            return true;
+        } else if (cmd.getName().equalsIgnoreCase("allocatelot")) {
+            if (!hasPermission(sender, "lotmanager.allocatelot")) {
+                sendError(sender, "No Permission!");
+                return false;
+            }
+            if (args.length > 3) {
+                sendError(sender, "Too many arguments!");
+                return false;
+            }
+            if (args.length < 2) {
+                sendError(sender, "Not enough arguments!");
+                return false;
+            }
+            
+            final OfflinePlayer offlineplayer = getServer().getOfflinePlayer(args[1]);
+            if (offlineplayer == null) {
+                sender.sendMessage(ChatColor.RED + args[1] + " is not a valid player name.");
+            } else {
+                if (args.length == 2) {
+                    allocateLot("world", args[0], offlineplayer, player);
+                } else {
+                    allocateLot(args[2], args[0], offlineplayer, player);
+                }
+            }
+            return true;
         }
         return false;
     }
 
-    public void saveLots(CommandSender sender)
-    {
-        try
-        {
+    public void saveLots(CommandSender sender) {
+        try {
             this.lots.save();
             sendInfo(sender, "Lots saved.");
         } catch (ClassNotFoundException e) {
@@ -722,6 +774,7 @@ public class LotManagerPlugin extends JavaPlugin {
         }
         DefaultDomain owners = new DefaultDomain();
         wg.getRegionManager(this.server.getWorld(world)).getRegion(id).setOwners(owners);
+        wg.getRegionManager(this.server.getWorld(world)).getRegion(id).setMembers(owners);
         //wg.getRegionManager(world).save();
         if(signs.containsKey(id)) {
             refreshSigns(id);
@@ -729,7 +782,7 @@ public class LotManagerPlugin extends JavaPlugin {
         sendInfo(sender, "\"" + id + "\" is now free again.");
     }
 
-    public void hasLot(CommandSender sender, Player player) {
+    public void hasLot(CommandSender sender, OfflinePlayer player) {
         try {
             List<Lot> userlots;
             userlots = new ArrayList<Lot>();
@@ -773,7 +826,7 @@ public class LotManagerPlugin extends JavaPlugin {
             }
         } catch (Exception e) {
             logError(e.getMessage());
-            sendError(player, e.getMessage());
+            sendError(sender, e.getMessage());
         }
     }
 
@@ -921,6 +974,59 @@ public class LotManagerPlugin extends JavaPlugin {
         sendInfo(player, "You're now the proud owner of \"" + id + "\".");
     }
 
+    public void allocateLot(String worldname, String id, OfflinePlayer player, Player sender) {
+        // Valid world?
+        World world = null;
+        try {
+            world = this.server.getWorld(worldname);
+        } catch(Exception e) {
+            sendError(sender, "\"" + worldname + "\" is not a world.");
+            return;
+        }
+        if (world == null) {
+            sendError(sender, "\"" + worldname + "\" is not a world.");
+            return;
+        }
+
+        Integer WorldId = this.lots.getWorldId(world);
+        // Valid lot?
+        if (!this.lots.existsLot(WorldId, id)) {
+            sendError(sender, "\"" + id + "\" is not a lot.");
+            return;
+        }
+        Lot lot = this.lots.getLot(WorldId, id);
+
+        // Valid region?
+        ProtectedRegion region = this.wg.getRegionManager(world).getRegion(id);
+        if (region == null) {
+            sendError(sender, "\"" + id + "\" is not a region.");
+            return;
+        }
+
+        // lot free?
+        if (region.getOwners().size() > 0) {
+            sendError(sender, "The lot \"" + id + "\" is already given away.");
+            return;
+        }
+
+        // Add the user as owner to wg
+        DefaultDomain owners = new DefaultDomain();
+        owners.addPlayer(this.wg.getWG().wrapPlayer(player.getPlayer()));
+        this.wg.getRegionManager(world).getRegion(id).setOwners(owners);
+        //DependencyUtils.getRegionManager(world).save();
+
+        // Refresh signs for the lot
+        if (this.signs.containsKey(id)) {
+            refreshSigns(id);
+        }
+
+        // Success
+        sendInfo(sender, player.getName() + " is now the proud owner of \"" + id + "\".");
+        if (player.isOnline()) {
+            sendInfo(player.getPlayer(), "You're now the proud owner of \"" + id + "\".");
+        }
+    }
+
     public void getLotPrice(String worldname, String id, Player player) {
         try {
             // Valid world?
@@ -975,6 +1081,51 @@ public class LotManagerPlugin extends JavaPlugin {
         }
     }
 
+    public void getInactiveLotList(CommandSender sender) {
+        try {
+            if (this.hasEssentials) {
+
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(new Date());
+                cal.add(Calendar.MONTH, -1);
+                cal.set(Calendar.HOUR, 0);
+                cal.set(Calendar.MINUTE, 0);
+                cal.set(Calendar.SECOND, 0);
+                cal.set(Calendar.MILLISECOND, 0);
+
+                Boolean foundone = false;
+                for (World world : this.getServer().getWorlds()) {
+                    for (Lot lot : this.lots.getAllLots().values()) {
+                        final ProtectedRegion wgregion = this.wg.getRegionManager(world).getRegion(lot.getId());
+                        if (wgregion != null) {
+                            DefaultDomain owners = wgregion.getOwners();
+                            if (owners != null) {
+                                for (String player : owners.getPlayers()) {
+                                    User essuser = this.ess.getOfflineUser(player);
+                                    if (essuser != null) {
+                                        final Date lastonline = new Date(essuser.getLastLogin());
+                                        if (lastonline.before(cal.getTime())) {
+                                            this.sendInfo(sender, lot.getId() + " - " + player + " (" + lastonline.toString() + ")");
+                                            foundone = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!foundone) {
+                    this.sendInfo(sender, "All lots given away seem to be actively used.");
+                }
+            } else {
+                sendError(sender, "Sorry, you need \"Essentials\" to use this feature.");
+            }
+        } catch (Exception e) {
+            logError(e.getMessage());
+            sendError(sender, e.getMessage());
+        }
+    }
+
     public void checkSigns() { 
         Set<String> keys = signs.keySet();
         Iterator<String> i = keys.iterator();
@@ -1021,9 +1172,6 @@ public class LotManagerPlugin extends JavaPlugin {
             // Get all owners of the region
             Set<String> owners = wg.getRegionManager(world).getRegion(lotName).getOwners().getPlayers();
 
-            // Try to get this lot
-            Lot lot = lots.getLot(lots.getWorldId(world), lotName);
-
             // Cut the Lotname
             String tLotName = null;
             if(lotName.length() >= 15) {
@@ -1036,7 +1184,7 @@ public class LotManagerPlugin extends JavaPlugin {
             final String mPlayerName;
             if (owners.size() > 0) {
                 // Get just the first owner in the list
-                String playerName = owners.toArray(new String[owners.size()])[0];
+                String playerName = owners.toArray()[0].toString();
 
                 // Cut the Playername
                 String tPlayerName = null;
@@ -1048,6 +1196,9 @@ public class LotManagerPlugin extends JavaPlugin {
 
                 mPlayerName = (ChatColor.RED + tPlayerName);
             } else {
+                // Try to get this lot
+                Lot lot = lots.getLot(lots.getWorldId(world), lotName);
+
                 Double price = lot.getGroup().getLotPrice();
                 if (price > 0) {
                     try {
@@ -1083,6 +1234,40 @@ public class LotManagerPlugin extends JavaPlugin {
                 return;
             }
         }
+    }
+
+    public boolean isLotSign(Block block) {
+        for(String lotName : signs.keySet()) {
+            ArrayList<Block> blocks = signs.get(lotName);
+            if (blocks.contains(block)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public String getLotSignOwner(String lotName, World world) {
+        Set<String> owners = wg.getRegionManager(world).getRegion(lotName).getOwners().getPlayers();
+        if (!owners.isEmpty()) {
+            final String playername = owners.toArray()[0].toString();
+            final OfflinePlayer player = getServer().getOfflinePlayer(playername);
+            if (player == null) {
+                return playername;
+            } else {
+                return player.getName();
+            }
+        }
+        return null;
+    }
+
+    public String getLotSignLotName(Block block) {
+        for(String lotName : signs.keySet()) {
+            ArrayList<Block> blocks = signs.get(lotName);
+            if (blocks.contains(block)) {
+                return lotName;
+            }
+        }
+        return null;
     }
 
     public void removeSign(String lotName, Block block) {

@@ -1,11 +1,11 @@
 name: LotManager
 main: de.bangl.lm.LotManagerPlugin
 description: WorldGuard extension to manage lots/cities.
-version: 1.7
+version: 1.9
 
 authors: [ BangL ]
 depend: [ WorldGuard, Vault ]
-softdepend: [ WorldEdit ]
+softdepend: [ WorldEdit, Essentials ]
 
 commands:
   getlot:
@@ -55,6 +55,12 @@ commands:
   reloadlots:
     usage: /<command>
     permission: lotmanager.reloadlots
+  inactivelots:
+    usage: /<command>
+    permission: lotmanager.inactivelots
+  allocatelot:
+    usage: /<command> [lotname] [playername] (world)
+    permission: lotmanager.allocatelot
 
 permissions:
   lotmanager.*:
@@ -73,6 +79,9 @@ permissions:
       lotmanager.list: true
       lotmanager.savelots: true
       lotmanager.reloadlots: true
+      lotmanager.inactivelots: true
+      lotmanager.allocatelot: true
+      lotmanager.sign.create: true
   lotmanager.getlot:
     default: true
     children:
@@ -100,5 +109,11 @@ permissions:
   lotmanager.savelots:
     default: op
   lotmanager.reloadlots:
+    default: op
+  lotmanager.allocatelot:
+    default: op
+  lotmanager.inactivelots:
+    default: op
+  lotmanager.sign.create:
     default: op
     
