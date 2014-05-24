@@ -54,8 +54,7 @@ public class WorldGuardWrapper {
         }
     }
 
-    public WorldGuardPlugin getWG()
-    {
+    public WorldGuardPlugin getWG() {
         return this.wg;
     }
 

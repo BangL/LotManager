@@ -16,6 +16,7 @@
  */
 package de.bangl.lm;
 
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -43,11 +44,20 @@ public class LotManagerListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        int changedMaterial;
-        changedMaterial = event.getBlock().getTypeId();
-        if (changedMaterial == 63 || changedMaterial == 68) {
-            plugin.removeSign(event.getBlock());
-            //plugin.logInfo("Lot sign removed.");
+        if ((event.getBlock().getType() == Material.SIGN
+                || event.getBlock().getType() == Material.SIGN_POST)
+                && this.plugin.isLotSign(event.getBlock())) {
+            Player player = event.getPlayer();
+            if (player == null) {
+                plugin.removeSign(event.getBlock());
+            } else if (LotManagerPlugin.hasPermission(player, "lotmanager.admin.sign.break")) {
+                LotManagerPlugin.sendInfo(player, "Grundstueck-Schild entfernt.");
+                plugin.removeSign(event.getBlock());
+            } else {
+                LotManagerPlugin.sendError(player, "Du bist nicht berechtigt Grundstueck-Schilder zu entfernen.");
+                event.setCancelled(true);
+                return;
+            }
         }
     }
 
@@ -61,12 +71,13 @@ public class LotManagerListener implements Listener {
         if (state instanceof Sign) {
             Sign sign = (Sign)state;
 
-            if (!event.getLine(0).equalsIgnoreCase("[lot]")) {
+            if (!event.getLine(0).equalsIgnoreCase("[lot]")
+                    && !event.getLine(0).equalsIgnoreCase("[tplot]")) {
                 return;
             }
 
-            if (!LotManagerPlugin.hasPermission(player, "lotmanager.sign.create")) {
-                LotManagerPlugin.sendError(player, "You don't have the permission to create lot signs!");
+            if (!LotManagerPlugin.hasPermission(player, "lotmanager.admin.sign.create")) {
+                LotManagerPlugin.sendError(player, "Du bist nicht berechtigt Grundstueck-Schilder aufzustellen.");
                 event.setCancelled(true);
                 return;
             }
@@ -74,7 +85,7 @@ public class LotManagerListener implements Listener {
             String lotName = event.getLine(1);
 
             if (lotName.equals("")) {
-                LotManagerPlugin.sendError(player, "Type a lot name on the second line next time!");
+                LotManagerPlugin.sendError(player, "Kein Grundstueckname angegeben.");
                 event.setCancelled(true);
                 return;
             }
@@ -89,14 +100,14 @@ public class LotManagerListener implements Listener {
             World world;
             world = plugin.server.getWorld(worldName);
             if (world == null) {
-                LotManagerPlugin.sendError(player, "Invalid world name: \"" + worldName + "\"");
+                LotManagerPlugin.sendError(player, "Ungueltiger Weltname: \"" + worldName + "\"");
                 event.setCancelled(true);
                 return;
             }
             Integer worldId;
             worldId = plugin.lots.getWorldId(world);
             if (!plugin.lots.existsLot(worldId, lotName)) {
-                LotManagerPlugin.sendError(player, "\"" + lotName + "\" is not a valid lot!");
+                LotManagerPlugin.sendError(player, "\"" + lotName + "\" ist kein Grundstueck!");
                 event.setCancelled(true);
                 return;
             }
@@ -104,10 +115,15 @@ public class LotManagerListener implements Listener {
             event.setLine(1, lotName);
             sign.update(true);
 
-            plugin.addSign(lotName, event.getBlock());
+            if (event.getLine(0).equalsIgnoreCase("[tplot]")) {
+                plugin.addSign(lotName, new LotManagerSign(event.getBlock(), true));
+            } else {
+                plugin.addSign(lotName, new LotManagerSign(event.getBlock(), false));
+            }
+
             plugin.refreshSigns(lotName, Boolean.valueOf(true));
 
-            LotManagerPlugin.sendInfo(player, "Lot sign created!");
+            LotManagerPlugin.sendInfo(player, "Grundstueck-Schild aufgestellt.");
         }
     }
 
@@ -125,13 +141,18 @@ public class LotManagerListener implements Listener {
                 final String lotOwner = plugin.getLotSignOwner(lotName, block.getWorld());
                 if (lotOwner != null) {
                     if (plugin.hasEssentials
-                            && LotManagerPlugin.hasPermission(player, "essentials.seen")) {
+                            && LotManagerPlugin.hasPermission(player, "essentials.seen")
+                            && LotManagerPlugin.hasPermission(player, "lotmanager.user.sign.seen")) {
                         plugin.getServer().dispatchCommand(player, "seen " + lotOwner);
                     } else {
-                        LotManagerPlugin.sendError(player, "\"" + lotName + "\" is already in use.");
+                        LotManagerPlugin.sendInfo(player, "Das Grundstueck \"" + lotName + "\" gehoert \"" + sign.getLine(2) + "\".");
                     }
                 } else {
-                    LotManagerPlugin.sendInfo(player, "This lot is still free! Type \"/getlot " + lotName + "\" to claim this lot.");
+                    if (LotManagerPlugin.hasPermission(player, "lotmanager.user.get")) {
+                        LotManagerPlugin.sendInfo(player, "Dieses Grundstueck ist unbewohnt. Schreib \"/lot get " + lotName + "\" um es zu beanspruchen.");
+                    } else {
+                        LotManagerPlugin.sendInfo(player, "Dieses Grundstueck ist unbewohnt.");
+                    }
                 }
             }
         }

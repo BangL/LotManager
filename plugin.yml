@@ -1,119 +1,136 @@
 name: LotManager
 main: de.bangl.lm.LotManagerPlugin
 description: WorldGuard extension to manage lots/cities.
-version: 1.9
+version: 2.3
 
 authors: [ BangL ]
 depend: [ WorldGuard, Vault ]
 softdepend: [ WorldEdit, Essentials ]
 
 commands:
-  getlot:
-    usage: /<command> [lotname] (world)
-    permission: lotmanager.getlot
-  lotprice:
-    usage: /<command> [lotname] (world)
-    permission: lotmanager.getlot
-  mylot:
-    usage: /<command>
-    permission: lotmanager.mylot
-    aliases: [ mylots ]
-  lotgroupupdate:
-    usage: /<command> [lotgroupname] [limit] [lot_price]
-    permission: lotmanager.groupupdate
-  lotgroupdefine:
-    usage: /<command> [lotgroupname] [limit] [lot_price]
-    permission: lotmanager.groupdefine
-  lotgroupundefine:
-    usage: /<command> [lotgroupname]
-    permission: lotmanager.groupundefine
-  lotupdate:
-    usage: /<command> [lotname] [lotgroup] (world)
-    permission: lotmanager.update
-  lotdefine:
-    usage: /<command> [lotname] [lotgroup] (world)
-    permission: lotmanager.define
-  lotundefine:
-    usage: /<command> [lotname] (world)
-    permission: lotmanager.undefine
-  clearlot:
-    usage: /<command> [lotname] (world)
-    permission: lotmanager.clearlot
-  haslot:
-    usage: /<command> [username]
-    permission: lotmanager.haslot
-    aliases: [ haslots ]
-  listlots:
-    usage: /<command>
-    permission: lotmanager.list
-  listlotgroups:
-    usage: /<command>
-    permission: lotmanager.list
-  savelots:
-    usage: /<command>
-    permission: lotmanager.savelots
-  reloadlots:
-    usage: /<command>
-    permission: lotmanager.reloadlots
-  inactivelots:
-    usage: /<command>
-    permission: lotmanager.inactivelots
-  allocatelot:
-    usage: /<command> [lotname] [playername] (world)
-    permission: lotmanager.allocatelot
-
+  lot:
+    permission: lotmanager.user
+    description: Allgemeiner Grundstueck-befehl. Schreibe /lot fuer weitere hilfe.
+    usage: |
+           Grundstueckverwaltung:
+           /<command> get - Zum naechsten freien Grundstueck teleportieren
+           /<command> get [Lotname] (Welt) - Grundstueck kaufen
+           /<command> price [Lotname] (Welt) - Grundstueckpreis sehen
+           /<command> home - Eigene Adresse anzeigen lassen
+           /<command> has [Name] - Adresse eines anderen Spielers anzeigen lassen
+           /<command> tphome (Welt) - Zum eigenen Grundstueck teleportieren
+  lotgroup:
+    permission: lotmanager.admin
+    description: Lotgruppen-Administration. Schreibe /lotgroup fuer weitere hilfe.
+    usage: |
+           Usage:
+           /<command> define [lotgroupname] [limit] [lot_price] - Neue Grundstueck-Gruppe definieren
+           /<command> redefine [lotgroupname] [limit] [lot_price] - Limit und/oder Preis einer Gruppe aendern
+           /<command> undefine [lotgroupname] - Gruppe loeschen
+           /<command> list - Alle Gruppen auflisten
+  lotadmin:
+    aliases: [ lotmanager, lm ]
+    permission: lotmanager.admin
+    description: Lot-Administration. Schreibe /lotadmin fuer weitere hilfe.
+    usage: |
+           Usage:
+           /<command> define [lotname] [lotgroup] (world) - Neues Grundstueck definieren
+           /<command> redefine [lotname] [lotgroup] (world) - Gruppe aendern
+           /<command> undefine [lotname] (world) - Grundstuecksdaten loeschen
+           /<command> reload - Alle Grundstuecksdaten neu laden
+           /<command> save - Alle Grundstuecksdaten abspeichern
+  lotmod:
+    aliases: []
+    permission: lotmanager.mod
+    description: Lot-Moderation. Schreibe /lotmod fuer weitere hilfe.
+    usage: |
+           Usage:
+           /<command> clear [lotname] (world) - Alle Owner/Member eines Grundstuecks entfernen
+           /<command> list - Alle Grundstuecke auflisten
+           /<command> inactive - Alle inaktiv genutzen Grundstuecke auflisten
+           /<command> allocate [lotname] [playername] (world) - Grundstueck zuweisen
 permissions:
   lotmanager.*:
     default: false
     children:
-      lotmanager.getlot: true
-      lotmanager.mylot: true
-      lotmanager.groupupdate: true
-      lotmanager.groupdefine: true
-      lotmanager.groupundefine: true
-      lotmanager.update: true
-      lotmanager.define: true
-      lotmanager.undefine: true
-      lotmanager.clearlot: true
-      lotmanager.haslot: true
-      lotmanager.list: true
-      lotmanager.savelots: true
-      lotmanager.reloadlots: true
-      lotmanager.inactivelots: true
-      lotmanager.allocatelot: true
-      lotmanager.sign.create: true
-  lotmanager.getlot:
+      lotmanager.admin: true
+  lotmanager.admin:
+    default: false
+    children:
+      lotmanager.user: true
+      lotmanager.mod: true
+  lotmanager.user:
     default: true
     children:
-      lotmanager.mylot: true
-  lotmanager.mylot:
+      lotmanager.user.get: true
+      lotmanager.user.get.default: true
+      lotmanager.user.home: true
+      lotmanager.user.has: true
+      lotmanager.user.tp: true
+      lotmanager.user.sign.seen: true
+  lotmanager.mod:
+    default: false
+    children:
+      lotmanager.mod.clear: true
+      lotmanager.mod.list: true
+      lotmanager.mod.inactive: true
+      lotmanager.mod.allocate: true
+      lotmanager.user.get.*: true
+  lotmanager.admin:
+    default: false
+    children:
+      lotmanager.admin.update: true
+      lotmanager.admin.define: true
+      lotmanager.admin.undefine: true
+      lotmanager.admin.group.update: true
+      lotmanager.admin.group.define: true
+      lotmanager.admin.group.undefine: true
+      lotmanager.admin.group.list: true
+      lotmanager.admin.sign.create: true
+      lotmanager.admin.sign.break: true
+      lotmanager.admin.save: true
+      lotmanager.admin.reload: true
+  lotmanager.user.get:
     default: true
-  lotmanager.haslot:
+  lotmanager.user.get.default:
     default: true
-  lotmanager.groupupdate:
+  lotmanager.user.get.*:
     default: op
-  lotmanager.groupdefine:
+  lotmanager.user.home:
+    default: true
+  lotmanager.user.has:
+    default: true
+  lotmanager.user.tp:
+    default: true
+  lotmanager.user.sign.seen:
     default: op
-  lotmanager.groupundefine:
+  lotmanager.mod.clear:
     default: op
-  lotmanager.update:
+  lotmanager.mod.list:
     default: op
-  lotmanager.define:
+  lotmanager.mod.inactive:
     default: op
-  lotmanager.undefine:
+  lotmanager.mod.allocate:
     default: op
-  lotmanager.clearlot:
+  lotmanager.admin.update:
     default: op
-  lotmanager.list:
+  lotmanager.admin.define:
     default: op
-  lotmanager.savelots:
+  lotmanager.admin.undefine:
     default: op
-  lotmanager.reloadlots:
+  lotmanager.admin.group.update:
     default: op
-  lotmanager.allocatelot:
+  lotmanager.admin.group.define:
     default: op
-  lotmanager.inactivelots:
+  lotmanager.admin.group.undefine:
     default: op
-  lotmanager.sign.create:
+  lotmanager.admin.group.list:
     default: op
-    
+  lotmanager.admin.sign.create:
+    default: op
+  lotmanager.admin.sign.break:
+    default: op
+  lotmanager.admin.save:
+    default: op
+  lotmanager.admin.reload:
+    default: op

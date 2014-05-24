@@ -36,11 +36,14 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.logging.Level;
 import net.milkbowl.vault.economy.Economy;
+import org.apache.commons.lang.StringUtils;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
+import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.World;
@@ -72,7 +75,7 @@ public class LotManagerPlugin extends JavaPlugin {
 
     private final LotManagerListener eventListener = new LotManagerListener(this);
 
-    private HashMap<String, ArrayList<Block>> signs = new HashMap<String, ArrayList<Block>>();
+    private LotManagerSignList Signs = new LotManagerSignList();
 
     private boolean setupEconomy() {
         try {
@@ -212,8 +215,11 @@ public class LotManagerPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         try {
+            this.getLogger().log(Level.INFO, "Saving WorldGuard regions...");
             this.wg.save();
+            this.getLogger().log(Level.INFO, "Saving Lots...");
             this.lots.save();
+            this.getLogger().log(Level.INFO, "Saving Signs...");
             saveSigns();
         } catch (ClassNotFoundException e) {
             logError(e.getMessage());
@@ -239,291 +245,354 @@ public class LotManagerPlugin extends JavaPlugin {
         if (sender instanceof Player) {
             player = (Player)sender;
         }
-
-        if (cmd.getName().equalsIgnoreCase("getlot")) {
-            if (!hasPermission(sender, "lotmanager.getlot")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (player == null) {
-                sendError(sender, "this command can only be run by a player");
-                return false;
-            }
-            if (args.length > 2) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 1) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            if (args.length == 1) {
-                this.getLot("world", args[0], player);
-            } else {
-                this.getLot(args[1], args[0], player);
-            }
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("lotprice")) {
-            if (!hasPermission(sender, "lotmanager.getlot")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (player == null) {
-                sendError(sender, "this command can only be run by a player");
-                return false;
-            }
-            if (args.length > 2) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 1) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            if (args.length == 1) {
-                getLotPrice("world", args[0], player);
-            } else {
-                getLotPrice(args[1], args[0], player);
-            }
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("mylot") || cmd.getName().equalsIgnoreCase("mylots")) {
-            if (!hasPermission(sender, "lotmanager.mylot")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (player == null) {
-                sender.sendMessage("this command can only be run by a player");
-                return false;
-            }
-            if (args.length > 0) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            myLots(player);
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("lotgroupupdate")) {
-            if(!hasPermission(sender, "lotmanager.groupupdate")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 3) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 3) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            updateLotGroup(args[0], args[1], args[2], sender);
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("lotgroupdefine")) {
-            if(!hasPermission(sender, "lotmanager.groupdefine")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 3) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 3) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            defineLotGroup(args[0], args[1], args[2], sender);
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("lotgroupundefine")) {
-            if(!hasPermission(sender, "lotmanager.groupundefine")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 1) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 1) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            undefineLotGroup(args[0], sender);
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("lotupdate")) {
-            if(!hasPermission(sender, "lotmanager.update")) {
+        if (args.length == 0) {
+            return false;
+        }
+        if (cmd.getName().equalsIgnoreCase("lotmanager")
+                || cmd.getName().equalsIgnoreCase("lotadmin")
+                || cmd.getName().equalsIgnoreCase("lm")) {
+            String command = args[0];
+            if (command.equalsIgnoreCase("save")) {
+                if (!hasPermission(sender, "lotmanager.admin.save")) {
                     sendError(sender, "No Permission!");
                     return false;
-            }
-            if (args.length > 3) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 2) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            if (args.length == 2) {
-                updateLot("world", args[0], args[1], sender);
-            } else {
-                updateLot(args[2], args[0], args[1], sender);
-            }
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("lotdefine")) {
-            if(!hasPermission(sender, "lotmanager.define")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 3) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 2) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            if (args.length == 2) {
-                defineLot("world", args[0], args[1], sender);
-            } else {
-                defineLot(args[2], args[0], args[1], sender);
-            }
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("lotundefine")) {
-            if (!hasPermission(sender, "lotmanager.undefine")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 1) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 1) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            if (args.length == 1) {
-                undefineLot("world", args[0], sender);
-            } else {
-                undefineLot(args[1], args[0], sender);
-            }
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("clearlot")) {
-            if (!hasPermission(sender, "lotmanager.clearlot")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 1) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 1) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            if (args.length == 1) {
-                clearLot("world", args[0], sender);
-            } else {
-                clearLot(args[1], args[0], sender);
-            }
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("haslot") || cmd.getName().equalsIgnoreCase("haslots")) {
-            if (!hasPermission(sender, "lotmanager.haslot")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 1) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 1) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            final OfflinePlayer offlineplayer = getServer().getOfflinePlayer(args[0]);
-            if (offlineplayer == null) {
-                sender.sendMessage(ChatColor.RED + args[0] + " is not a valid player name.");
-            } else {
-                hasLot(sender, offlineplayer);
-            }
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("listlots")) {
-            if (!hasPermission(sender, "lotmanager.listlots")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 0) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            listLots(sender);
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("listlotgroups")) {
-            if (!hasPermission(sender, "lotmanager.listlotgroups")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 0) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            listLotGroups(sender);
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("savelots")) {
-            if (!hasPermission(sender, "lotmanager.savelots")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 0) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            saveLots(sender);
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("reloadlots")) {
-            if (!hasPermission(sender, "lotmanager.reloadlots")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 0) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            reloadLots(sender);
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("inactivelots")) {
-            if (!hasPermission(sender, "lotmanager.inactivelots")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 0) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length == 0) {
-                getInactiveLotList(sender);
-            }
-            return true;
-        } else if (cmd.getName().equalsIgnoreCase("allocatelot")) {
-            if (!hasPermission(sender, "lotmanager.allocatelot")) {
-                sendError(sender, "No Permission!");
-                return false;
-            }
-            if (args.length > 3) {
-                sendError(sender, "Too many arguments!");
-                return false;
-            }
-            if (args.length < 2) {
-                sendError(sender, "Not enough arguments!");
-                return false;
-            }
-            
-            final OfflinePlayer offlineplayer = getServer().getOfflinePlayer(args[1]);
-            if (offlineplayer == null) {
-                sender.sendMessage(ChatColor.RED + args[1] + " is not a valid player name.");
-            } else {
-                if (args.length == 2) {
-                    allocateLot("world", args[0], offlineplayer, player);
-                } else {
-                    allocateLot(args[2], args[0], offlineplayer, player);
                 }
+                if (args.length > 1) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                saveLots(sender);
+                return true;
+            } else if (command.equalsIgnoreCase("reload")) {
+                if (!hasPermission(sender, "lotmanager.admin.reload")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 1) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                reloadLots(sender);
+                return true;
+            } else if (command.equalsIgnoreCase("update")
+                    || command.equalsIgnoreCase("redefine")) {
+                if(!hasPermission(sender, "lotmanager.admin.update")) {
+                        sendError(sender, "No Permission!");
+                        return false;
+                }
+                if (args.length > 4) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 3) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                if (args.length == 4) {
+                    updateLot(args[3], args[1], args[2], sender);
+                } else {
+                    updateLot("world", args[1], args[2], sender);
+                }
+                return true;
+            } else if (command.equalsIgnoreCase("define")
+                    || command.equalsIgnoreCase("create")) {
+                if(!hasPermission(sender, "lotmanager.admin.define")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 4) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 3) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                if (args.length == 4) {
+                    defineLot(args[3], args[1], args[2], sender);
+                } else {
+                    defineLot("world", args[1], args[2], sender);
+                }
+                return true;
+            } else if (command.equalsIgnoreCase("undefine")
+                    || command.equalsIgnoreCase("delete")
+                    || command.equalsIgnoreCase("remove")) {
+                if (!hasPermission(sender, "lotmanager.admin.undefine")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 3) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 2) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                if (args.length == 3) {
+                    undefineLot(args[2], args[1], sender);
+                } else {
+                    undefineLot("world", args[1], sender);
+                }
+                return true;
             }
-            return true;
+        } else if (cmd.getName().equalsIgnoreCase("lotmod")) {
+            String command = args[0];
+            if (command.equalsIgnoreCase("clear")) {
+                if (!hasPermission(sender, "lotmanager.mod.clear")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 3) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 2) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                if (args.length == 3) {
+                    clearLot(args[2], args[1], sender);
+                } else {
+                    clearLot("world", args[1], sender);
+                }
+                return true;
+            } else if (command.equalsIgnoreCase("list")) {
+                if (!hasPermission(sender, "lotmanager.mod.list")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 1) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                listLots(sender);
+                return true;
+            } else if (command.equalsIgnoreCase("inactive")) {
+                if (!hasPermission(sender, "lotmanager.mod.inactive")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 1) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                getInactiveLotList(sender);
+                return true;
+            } else if (command.equalsIgnoreCase("allocate")) {
+                if (!hasPermission(sender, "lotmanager.mod.allocate")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 4) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 3) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+
+                final OfflinePlayer offlineplayer = getServer().getOfflinePlayer(args[2]);
+                if (offlineplayer == null) {
+                    sender.sendMessage(ChatColor.RED + args[2] + " is not a valid player name.");
+                } else {
+                    if (args.length == 4) {
+                        allocateLot(args[3], args[1], offlineplayer, player);
+                    } else {
+                        allocateLot("world", args[1], offlineplayer, player);
+                    }
+                }
+                return true;
+            }
+        } else if (cmd.getName().equalsIgnoreCase("lotgroup")) {
+            String command = args[0];
+            if (command.equalsIgnoreCase("update")
+                    || command.equalsIgnoreCase("redefine")) {
+                if(!hasPermission(sender, "lotmanager.admin.group.update")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 4) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 4) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                updateLotGroup(args[1], args[2], args[3], sender);
+                return true;
+            } else if (command.equalsIgnoreCase("define")
+                    || command.equalsIgnoreCase("create")) {
+                if(!hasPermission(sender, "lotmanager.admin.group.define")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 4) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 4) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                defineLotGroup(args[1], args[2], args[3], sender);
+                return true;
+            } else if (command.equalsIgnoreCase("undefine")
+                    || command.equalsIgnoreCase("delete")
+                    || command.equalsIgnoreCase("remove")) {
+                if(!hasPermission(sender, "lotmanager.admin.group.undefine")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 2) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 2) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                undefineLotGroup(args[1], sender);
+                return true;
+            }
+             else if (command.equalsIgnoreCase("list")) {
+                if (!hasPermission(sender, "lotmanager.admin.group.list")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 1) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                listLotGroups(sender);
+                return true;
+            }
+        } else if (cmd.getName().equalsIgnoreCase("lot")) {
+            String command = args[0];
+            if (command.equalsIgnoreCase("get")) {
+                if (!hasPermission(sender, "lotmanager.user.get")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (player == null) {
+                    sendError(sender, "this command can only be run by a player");
+                    return false;
+                }
+                if (args.length > 3) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length == 1) {
+                    Lot lot = getNextFreeLot("world");
+                    if (lot == null) {
+                        sendError(sender, "Kein freies Grundstueck gefunden.");
+                    } else {
+                        this.tpToLot(player, "world", lot);
+                    }
+                } else if (args.length == 2) {
+                    String lotname = args[1];
+                    this.getLot(player, lotname);
+                } else {
+                    String lotname = args[1];
+                    String worldname = args[2];
+                    this.getLot(player, lotname, worldname);
+                }
+                return true;
+            } else if (command.equalsIgnoreCase("price")) {
+                if (!hasPermission(sender, "lotmanager.user.get")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (player == null) {
+                    sendError(sender, "this command can only be run by a player");
+                    return false;
+                }
+                if (args.length > 3) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 2) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                if (args.length == 2) {
+                    String lotname = args[1];
+                    getLotPrice("world", lotname, player);
+                } else {
+                    String lotname = args[1];
+                    String worldname = args[2];
+                    getLotPrice(worldname, lotname, player);
+                }
+                return true;
+            } else if (command.equalsIgnoreCase("home")
+                    || command.equalsIgnoreCase("homes")) {
+                if (!hasPermission(sender, "lotmanager.user.home")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (player == null) {
+                    sender.sendMessage("this command can only be run by a player");
+                    return false;
+                }
+                if (args.length > 1) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                myLots(player);
+                return true;
+            } else if (command.equalsIgnoreCase("has")) {
+                if (!hasPermission(sender, "lotmanager.user.has")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (args.length > 2) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length < 2) {
+                    sendError(sender, "Not enough arguments!");
+                    return false;
+                }
+                final Player oplayer = getServer().getPlayer(args[1]);
+                if (oplayer == null) {
+                    sender.sendMessage(ChatColor.RED + args[1] + " is not a valid player name.");
+                } else {
+                    hasLot(sender, oplayer);
+                }
+                return true;
+            } else if (command.equalsIgnoreCase("tphome")
+                    || command.equalsIgnoreCase("tp")) {
+                if (!hasPermission(sender, "lotmanager.user.tp")) {
+                    sendError(sender, "No Permission!");
+                    return false;
+                }
+                if (player == null) {
+                    sender.sendMessage("this command can only be run by a player");
+                    return false;
+                }
+                if (args.length > 2) {
+                    sendError(sender, "Too many arguments!");
+                    return false;
+                }
+                if (args.length == 2) {
+                    Lot home = getHomeLot(player, args[1]);
+                    if (home == null) {
+                        player.sendMessage("Kein Home-Grundstueck in " + args[1] + " gefunden");
+                    } else {
+                        tpToLot(player, args[1], home);
+                    }
+                } else {
+                    Lot home = getHomeLot(player, "world");
+                    if (home == null) {
+                        player.sendMessage("Kein Home-Grundstueck gefunden");
+                    } else {
+                        tpToLot(player, "world", home);
+                    }
+                }
+                return true;
+            }
         }
         return false;
     }
@@ -628,7 +697,7 @@ public class LotManagerPlugin extends JavaPlugin {
                 return;
             }
             this.lots.defineLotGroup(id, Integer.parseInt(limit), Double.parseDouble(price));
-            if(signs.containsKey(id)) {
+            if(this.Signs.containsKey(id)) {
                 refreshSigns(id);
             }
             sendInfo(sender, "\"" + id + "\" is now defined as a lot group.");
@@ -679,7 +748,7 @@ public class LotManagerPlugin extends JavaPlugin {
                 return;
             }
             this.lots.updateLot(WorldId, id, group);
-            if(signs.containsKey(id)) {
+            if(this.Signs.containsKey(id)) {
                 refreshSigns(id);
             }
             sendInfo(sender, "Region \"" + id + "\" is now updated.");
@@ -713,7 +782,7 @@ public class LotManagerPlugin extends JavaPlugin {
                 return;
             }
             this.lots.defineLot(WorldId, id, group);
-            if(signs.containsKey(id)) {
+            if(this.Signs.containsKey(id)) {
                 refreshSigns(id);
             }
             sendInfo(sender, "Region \"" + id + "\" is now defined as a lot.");
@@ -772,17 +841,28 @@ public class LotManagerPlugin extends JavaPlugin {
             sendError(sender, "\"" + id + "\" is not a lot.");
             return;
         }
+
+        // Alte Owner auslesen (fürs log)
+        DefaultDomain oldOwners = wg.getRegionManager(this.server.getWorld(world)).getRegion(id).getOwners();
+        String oldOwnernames = "";
+        for (String ownername: oldOwners.getPlayers()) {
+            oldOwnernames = oldOwnernames + " " + ownername;
+        }
+        oldOwnernames = oldOwnernames.trim();
+
+        // Owner und Member löschen
         DefaultDomain owners = new DefaultDomain();
         wg.getRegionManager(this.server.getWorld(world)).getRegion(id).setOwners(owners);
         wg.getRegionManager(this.server.getWorld(world)).getRegion(id).setMembers(owners);
         //wg.getRegionManager(world).save();
-        if(signs.containsKey(id)) {
+        if(this.Signs.containsKey(id)) {
             refreshSigns(id);
         }
         sendInfo(sender, "\"" + id + "\" is now free again.");
+        logInfo("\"" + id + "\" is now free again. Old Owner: " + oldOwnernames);
     }
 
-    public void hasLot(CommandSender sender, OfflinePlayer player) {
+    public void hasLot(CommandSender sender, Player player) {
         try {
             List<Lot> userlots;
             userlots = new ArrayList<Lot>();
@@ -875,7 +955,101 @@ public class LotManagerPlugin extends JavaPlugin {
         }
     }
 
-    public void getLot(String worldname, String id, Player player) {
+    public Lot getNextFreeLot(String worldname) {
+        World world = getServer().getWorld(worldname);
+        if (world != null) {
+            Integer WorldId = this.lots.getWorldId(world);
+            Collection<ProtectedRegion> regions = wg.getRegionManager(world).getRegions().values();
+            for (ProtectedRegion region: regions) {
+                if (this.lots.existsLot(WorldId, region.getId())) {
+                    DefaultDomain owners = region.getOwners();
+                    if (owners == null || owners.getPlayers().isEmpty()) {
+                        return this.lots.getLot(WorldId, region.getId());
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    public Lot getHomeLot(Player player, String worldname) {
+        World world = getServer().getWorld(worldname);
+        if (world != null) {
+            Integer WorldId = this.lots.getWorldId(world);
+            Collection<ProtectedRegion> regions = wg.getRegionManager(world).getRegions().values();
+            for (ProtectedRegion region: regions) {
+                if (this.lots.existsLot(WorldId, region.getId())) {
+                    Set<String> owners = region.getOwners().getPlayers();
+                    for (String owner: owners) {
+                        if (player.getName().equalsIgnoreCase(owner)) {
+                            return this.lots.getLot(WorldId, region.getId());
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    public void tpToLot(Player player, String worldname, Lot lot) {
+        Location loc = getTpLocationOfLot(lot);
+        if (loc == null) {
+            sendError(player, "Das Grundstueck " + lot.getId() + " hat kein Teleport-Schild.");
+        } else {
+            player.teleport(loc);
+        }
+    }
+    
+    public Location getTpLocationOfLot(Lot lot) {
+        ArrayList<LotManagerSign> signs = this.Signs.getSigns(lot.getId());
+        for (LotManagerSign sign: signs) {
+            if (sign.isTpSign()) {
+                Block block = sign.getBlock();
+                Location result = new Location(block.getWorld(), block.getX() + 0.5, block.getY() + 0.5, block.getZ() + 0.5);
+                switch (((org.bukkit.material.Sign) block.getState().getData()).getFacing()) {
+                    case DOWN:
+                    case UP:
+                    case SELF:
+                        break;
+                    case EAST:
+                    case EAST_NORTH_EAST:
+                        result.setX(result.getX() + 1);
+                        result.setYaw(90);
+                        break;
+                    case NORTH:
+                    case NORTH_EAST:
+                    case NORTH_NORTH_EAST:
+                    case NORTH_NORTH_WEST:
+                    case NORTH_WEST:
+                        result.setZ(result.getZ() - 1);
+                        result.setYaw(0);
+                        break;
+                    case SOUTH:
+                    case SOUTH_EAST:
+                    case SOUTH_SOUTH_EAST:
+                    case SOUTH_SOUTH_WEST:
+                    case SOUTH_WEST:
+                        result.setZ(result.getZ() + 1);
+                        result.setYaw(-180);
+                        break;
+                    case WEST:
+                    case WEST_NORTH_WEST:
+                    case WEST_SOUTH_WEST:
+                        result.setX(result.getX() - 1);
+                        result.setYaw(-90);
+                        break;
+                }
+                return result;
+            }
+        }
+        return null;
+    }
+
+    public void getLot(Player player, String id) {
+        this.getLot(player, id, player.getWorld());
+    }
+
+    public void getLot(Player player, String id, String worldname) {
         // Valid world?
         World world = null;
         try {
@@ -888,8 +1062,12 @@ public class LotManagerPlugin extends JavaPlugin {
             sendError(player, "\"" + worldname + "\" is not a world.");
             return;
         }
+        this.getLot(player, id, world);
+    }
 
+    public void getLot(Player player, String id, World world) {
         Integer WorldId = this.lots.getWorldId(world);
+
         // Valid lot?
         if (!this.lots.existsLot(WorldId, id)) {
             sendError(player, "\"" + id + "\" is not a lot.");
@@ -910,11 +1088,18 @@ public class LotManagerPlugin extends JavaPlugin {
             return;
         }
 
+        LotGroup group = lot.getGroup();
+        if (!player.hasPermission("lotmanager.user.get." + group.getId().toLowerCase())
+                && !player.hasPermission("lotmanager.user.get.*")) {
+            sendError(player, "You don't have the permission to get a lot in the lot-group \"" + group.getId()  + "\".");
+            return;
+        }
+
         // can the user afford this?
-        Double lotprice = lot.getGroup().getLotPrice();
+        Double lotprice = group.getLotPrice();
         if (lotprice > 0) {
             try {
-                if (eco.getBalance(player.getName()) < lotprice) {
+                if (eco.getBalance(player) < lotprice) {
                     sendError(player, "You cant afford this.");
                     return;
                 }
@@ -928,7 +1113,6 @@ public class LotManagerPlugin extends JavaPlugin {
         // limit reached?
         Integer count = 0;
         List<World> worlds = getServer().getWorlds();
-        LotGroup group = lot.getGroup();
         for (World _world: worlds) {
             Integer _WorldId = this.lots.getWorldId(_world);
             Collection<ProtectedRegion> regions = this.wg.getRegionManager(_world).getRegions().values();
@@ -952,7 +1136,7 @@ public class LotManagerPlugin extends JavaPlugin {
 
         // charge price for lot
         try {
-            eco.withdrawPlayer(player.getName(), group.getLotPrice()); 
+            eco.withdrawPlayer(player, group.getLotPrice()); 
         } catch(Exception e) {
             logError(e.getMessage());
             sendError(player, "We have a problem here, sry.");
@@ -966,12 +1150,13 @@ public class LotManagerPlugin extends JavaPlugin {
         //DependencyUtils.getRegionManager(world).save();
 
         // Refresh signs for the lot
-        if (this.signs.containsKey(id)) {
+        if (this.Signs.containsKey(id)) {
             refreshSigns(id);
         }
 
         // Success
         sendInfo(player, "You're now the proud owner of \"" + id + "\".");
+        logInfo(player.getName() + " is now the proud owner of \"" + id + "\".");
     }
 
     public void allocateLot(String worldname, String id, OfflinePlayer player, Player sender) {
@@ -1016,12 +1201,13 @@ public class LotManagerPlugin extends JavaPlugin {
         //DependencyUtils.getRegionManager(world).save();
 
         // Refresh signs for the lot
-        if (this.signs.containsKey(id)) {
+        if (this.Signs.containsKey(id)) {
             refreshSigns(id);
         }
 
         // Success
         sendInfo(sender, player.getName() + " is now the proud owner of \"" + id + "\".");
+        logInfo(player.getName() + " is now the proud owner of \"" + id + "\".");
         if (player.isOnline()) {
             sendInfo(player.getPlayer(), "You're now the proud owner of \"" + id + "\".");
         }
@@ -1087,7 +1273,7 @@ public class LotManagerPlugin extends JavaPlugin {
 
                 Calendar cal = Calendar.getInstance();
                 cal.setTime(new Date());
-                cal.add(Calendar.MONTH, -1);
+                cal.add(Calendar.HOUR, -(24 * 7 * 2)); // Vor vier Wochen
                 cal.set(Calendar.HOUR, 0);
                 cal.set(Calendar.MINUTE, 0);
                 cal.set(Calendar.SECOND, 0);
@@ -1127,20 +1313,20 @@ public class LotManagerPlugin extends JavaPlugin {
     }
 
     public void checkSigns() { 
-        Set<String> keys = signs.keySet();
+        Set<String> keys = Signs.getKeys();
         Iterator<String> i = keys.iterator();
         while(i.hasNext()) {
             String lotName = i.next();
-            ArrayList<Block> blocks = signs.get(lotName);
-            for(Block b : blocks) {
-                Chunk chunk = b.getChunk();
-                World world = b.getWorld();
+            ArrayList<Block> blocks = this.Signs.getBlocks(lotName);
+            for(Block block : blocks) {
+                Chunk chunk = block.getChunk();
+                World world = block.getWorld();
                 if(!world.isChunkLoaded(chunk)) {
                     world.loadChunk(chunk);
                 }
-                final BlockState bState = b.getState();
+                final BlockState bState = block.getState();
                 if(!(bState instanceof Sign)) {
-                    this.removeSign(lotName, b);
+                    this.removeSign(lotName, block);
                     return;
                 }
             }
@@ -1152,20 +1338,20 @@ public class LotManagerPlugin extends JavaPlugin {
     }
 
     public void refreshSigns(String lotName, Boolean newSign) {
-        refreshSigns(signs.get(lotName), lotName);
+        refreshSigns(this.Signs.getBlocks(lotName), lotName);
     }
 
     public void refreshSigns(ArrayList<Block> arrayList, String lotName) {
-        for(Block b : arrayList) {
-            Chunk chunk = b.getChunk();
-            World world = b.getWorld();
+        for(Block block : arrayList) {
+            Chunk chunk = block.getChunk();
+            World world = block.getWorld();
             if(!world.isChunkLoaded(chunk)) {
                 world.loadChunk(chunk);
             }
 
-            final BlockState bState = b.getState();
+            final BlockState bState = block.getState();
             if(!(bState instanceof Sign)) {
-                this.removeSign(lotName, b);
+                this.removeSign(lotName, block);
                 return;
             }
 
@@ -1202,7 +1388,7 @@ public class LotManagerPlugin extends JavaPlugin {
                 Double price = lot.getGroup().getLotPrice();
                 if (price > 0) {
                     try {
-                        mPlayerName = (ChatColor.GREEN + eco.format(price));
+                        mPlayerName = (ChatColor.GREEN + formatPrice(price));
                     } catch(Exception e) {
                         logError(e.getMessage());
                         return;
@@ -1226,20 +1412,10 @@ public class LotManagerPlugin extends JavaPlugin {
         }
     }
 
-    public void removeSign(Block block) {
-        for(String lotName : signs.keySet()) {
-            ArrayList<Block> blocks = signs.get(lotName);
-            if(blocks.contains(block)) {
-                removeSign(lotName, block);
-                return;
-            }
-        }
-    }
-
     public boolean isLotSign(Block block) {
-        for(String lotName : signs.keySet()) {
-            ArrayList<Block> blocks = signs.get(lotName);
-            if (blocks.contains(block)) {
+        for(String lotName : this.Signs.getKeys()) {
+            ArrayList<Block> blocks = this.Signs.getBlocks(lotName);
+            if(blocks.contains(block)) {
                 return true;
             }
         }
@@ -1261,57 +1437,69 @@ public class LotManagerPlugin extends JavaPlugin {
     }
 
     public String getLotSignLotName(Block block) {
-        for(String lotName : signs.keySet()) {
-            ArrayList<Block> blocks = signs.get(lotName);
-            if (blocks.contains(block)) {
+        for(String lotName : this.Signs.getKeys()) {
+            ArrayList<Block> blocks = this.Signs.getBlocks(lotName);
+            if(blocks.contains(block)) {
                 return lotName;
             }
         }
         return null;
     }
 
+    public void removeSign(Block block) {
+        for(String lotName : this.Signs.getKeys()) {
+            ArrayList<Block> blocks = this.Signs.getBlocks(lotName);
+            if(blocks.contains(block)) {
+                removeSign(lotName, block);
+                return;
+            }
+        }
+    }
+
     public void removeSign(String lotName, Block block) {
-        ArrayList<Block> blocks = signs.get(lotName);
+        ArrayList<LotManagerSign> signs = this.Signs.getSigns(lotName);
         //How could this happen?
-        if(blocks == null) {
+        if(signs == null) {
             logError("Unexpected Error 1.");
             return;
         }
-        if(blocks.size()-1 < 1) {
-            signs.remove(lotName);
+        if(signs.size()-1 < 1) {
+            this.Signs.remove(lotName);
         } else {
-            blocks.remove(block);
-            signs.put(lotName, blocks);
+            signs.remove(block);
+            this.Signs.put(lotName, signs);
         }
         this.saveSigns();
     }
 
-    public void addSign(String lotName, Block block) {
-        ArrayList<Block> blocks = signs.get(lotName);
-        if(blocks == null) {
-            ArrayList<Block> newBlocks = new ArrayList<Block>();
-            newBlocks.add(block);
-            signs.put(lotName, newBlocks);
+    public void addSign(String lotName, LotManagerSign sign) {
+        ArrayList<LotManagerSign> signs = this.Signs.getSigns(lotName);
+        if(signs == null) {
+            ArrayList<LotManagerSign> newSigns = new ArrayList<LotManagerSign>();
+            newSigns.add(sign);
+            this.Signs.put(lotName, newSigns);
         } else {
-            blocks.add(block);
-            signs.put(lotName, blocks);
+            signs.add(sign);
+            this.Signs.put(lotName, signs);
         }
         this.saveSigns();
     }
 
     public void saveSigns() {
         String store = "<";
-        Set<String> keys = signs.keySet();
+        Set<String> keys = this.Signs.getKeys();
         Iterator<String> i = keys.iterator();
         while(i.hasNext()) {
             String lot = i.next();
             store += lot + ";";
-            ArrayList<Block> blocks = signs.get(lot);
-            for(Block b : blocks) {
-                store += Integer.toString(b.getX()) + ";";
-                store += Integer.toString(b.getY()) + ";";
-                store += Integer.toString(b.getZ()) + ";";
-                store += b.getWorld().getName() + ";";
+            ArrayList<LotManagerSign> signs = this.Signs.getSigns(lot);
+            for(LotManagerSign sign : signs) {
+                Block block = sign.getBlock();
+                store += Integer.toString(block.getX()) + ";";
+                store += Integer.toString(block.getY()) + ";";
+                store += Integer.toString(block.getZ()) + ";";
+                store += block.getWorld().getName() + ";";
+                store += sign.isTpSign().toString() + ";";
             }
             store = store.substring(0, store.length()-1)+">" + System.getProperty("line.separator") + "<";
         }
@@ -1331,7 +1519,7 @@ public class LotManagerPlugin extends JavaPlugin {
 
     public void loadSigns() {
         byte[] buffer = new byte[(int) signsFile.length()];
-        signs.clear();
+        this.Signs.clear();
         BufferedInputStream f = null;
         try {
             f = new BufferedInputStream(new FileInputStream(signsFile));
@@ -1346,7 +1534,7 @@ public class LotManagerPlugin extends JavaPlugin {
             }
         }
         String store = new String(buffer);
-        String[] data = new String[5];
+        String[] data = new String[6];
         if(store.isEmpty()) {
             return;
         }
@@ -1357,24 +1545,26 @@ public class LotManagerPlugin extends JavaPlugin {
             data[0] = storeEntry.substring(0, storeEntry.indexOf(';'));
             storeEntry = storeEntry.substring(storeEntry.indexOf(';')+1);
             int i = 1;
-            while(storeEntry.contains(";") || i == 4 || i == 5) {
-                if(i == 5) {
+            while(storeEntry.contains(";") || i == 5 || i == 6) {
+                if(i == 6) {
                     String lot = data[0];
                     int x = Integer.parseInt(data[1]);
                     int y = Integer.parseInt(data[2]);
                     int z = Integer.parseInt(data[3]);
                     String world = data[4];
+                    Boolean isTpSign = Boolean.parseBoolean(data[5]);
 
                     Block dataBlock = getServer().getWorld(world).getBlockAt(x, y, z);
+                    LotManagerSign sign = new LotManagerSign(dataBlock, isTpSign);
 
-                    ArrayList<Block> blocks = signs.get(lot);
-                    if(blocks == null) {
-                        ArrayList<Block> newBlocksList = new ArrayList<Block>();
-                        newBlocksList.add(dataBlock);
-                        signs.put(lot, newBlocksList);
+                    ArrayList<LotManagerSign> signs = this.Signs.getSigns(lot);
+                    if(signs == null) {
+                        ArrayList<LotManagerSign> newSignList = new ArrayList<LotManagerSign>();
+                        newSignList.add(sign);
+                        this.Signs.put(lot, newSignList);
                     } else {
-                        blocks.add(dataBlock);
-                        signs.put(lot, blocks);
+                        signs.add(sign);
+                        this.Signs.put(lot, signs);
                     }
                     refreshSigns(data[0]);
                     i = 1;
@@ -1383,7 +1573,7 @@ public class LotManagerPlugin extends JavaPlugin {
                         break;
                     }
                 }
-                if(i == 4 && !storeEntry.contains(";")) {
+                if(i == 5 && !storeEntry.contains(";")) {
                     data[i] = storeEntry;
                 } else {
                     data[i] = storeEntry.substring(0, storeEntry.indexOf(';'));
@@ -1395,18 +1585,15 @@ public class LotManagerPlugin extends JavaPlugin {
         }
     }
 
-    public void logInfo(String message)
-    {
+    public void logInfo(String message) {
         this.getLogger().log(Level.INFO, "[LotManager] {0}", message);
     }
 
-    public void logError(String message)
-    {
+    public void logError(String message) {
         this.getLogger().log(Level.SEVERE, "[LotManager] {0}", message);
     }
 
-    public static boolean hasPermission(Player player, String permission)
-    {
+    public static boolean hasPermission(Player player, String permission) {
         return player.hasPermission(permission);
     }
 
@@ -1418,18 +1605,15 @@ public class LotManagerPlugin extends JavaPlugin {
         player.sendMessage(ChatColor.DARK_GREEN + "[LotManager] " + message);
     }
 
-    public static void sendError(Player player, String message)
-    {
+    public static void sendError(Player player, String message) {
         player.sendMessage(ChatColor.RED + "[LotManager] " + message);
     }
 
-    public static void sendInfo(CommandSender sender, String message)
-    {
+    public static void sendInfo(CommandSender sender, String message) {
         sender.sendMessage(ChatColor.DARK_GREEN + "[LotManager] " + message);
     }
 
-    public static void sendError(CommandSender sender, String message)
-    {
+    public static void sendError(CommandSender sender, String message) {
         sender.sendMessage(ChatColor.RED + "[LotManager] " + message);
     }
 
@@ -1449,5 +1633,14 @@ public class LotManagerPlugin extends JavaPlugin {
         } catch(Exception e) {
             return false;
         }
+    }
+    
+    public String formatPrice(Double price) {
+        String result = "";
+        result = String.format(Locale.GERMANY, "%.2f", price);
+        result = StringUtils.removeEnd(result, ".00");
+        result = StringUtils.removeEnd(result, ",00");
+        result = result + " " + eco.currencyNamePlural();
+        return result;
     }
 }
