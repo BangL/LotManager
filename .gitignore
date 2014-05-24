@@ -1,6 +1,21 @@
 *.class
-
-# Package Files #
-*.jar
-*.war
-*.ear
+*.diff
+*.patch
+/.svn
+.DS_Store
+/target/
+/*.iml
+/*.ipr
+/*.iws
+/*.jar
+/*.war
+/*.ear
+/.classpath
+/.idea
+/.project
+/.settings
+/bin
+/temp/*
+/video/*
+/temp.txt
+/nbproject
