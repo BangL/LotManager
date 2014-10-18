@@ -19,8 +19,9 @@ package de.bangl.lm;
 import com.earth2me.essentials.Essentials;
 import com.earth2me.essentials.User;
 import com.sk89q.worldguard.domains.DefaultDomain;
-import com.sk89q.worldguard.protection.databases.ProtectionDatabaseException;
+import com.sk89q.worldguard.protection.managers.storage.StorageException;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
+import de.bangl.blessentials.utils.UUIDFetcher;
 import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -30,6 +31,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
@@ -37,8 +39,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import net.milkbowl.vault.economy.Economy;
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.ChatColor;
@@ -225,7 +230,7 @@ public class LotManagerPlugin extends JavaPlugin {
             logError(e.getMessage());
         } catch (SQLException e) {
             logError(e.getMessage());
-        } catch (ProtectionDatabaseException e) {
+        } catch (StorageException e) {
             logError(e.getMessage());
         }
     }
@@ -393,14 +398,19 @@ public class LotManagerPlugin extends JavaPlugin {
                     return false;
                 }
 
-                final OfflinePlayer offlineplayer = getServer().getOfflinePlayer(args[2]);
-                if (offlineplayer == null) {
-                    sender.sendMessage(ChatColor.RED + args[2] + " is not a valid player name.");
+                UUID uuid = null;
+                try {
+                    uuid = UUIDFetcher.getUUIDOf(args[2]);
+                } catch (Exception ex) {
+                    logError(ex.getMessage());
+                }
+                if (uuid == null) {
+                    sender.sendMessage(ChatColor.RED + args[2] + " could not be found.");
                 } else {
                     if (args.length == 4) {
-                        allocateLot(args[3], args[1], offlineplayer, player);
+                        allocateLot(args[3], args[1], args[2], uuid, player);
                     } else {
-                        allocateLot("world", args[1], offlineplayer, player);
+                        allocateLot("world", args[1], args[2], uuid, player);
                     }
                 }
                 return true;
@@ -555,11 +565,16 @@ public class LotManagerPlugin extends JavaPlugin {
                     sendError(sender, "Not enough arguments!");
                     return false;
                 }
-                final Player oplayer = getServer().getPlayer(args[1]);
-                if (oplayer == null) {
-                    sender.sendMessage(ChatColor.RED + args[1] + " is not a valid player name.");
+                UUID uuid = null;
+                try {
+                    uuid = UUIDFetcher.getUUIDOf(args[1]);
+                } catch (Exception ex) {
+                    logError(ex.getMessage());
+                }
+                if (uuid == null) {
+                    sender.sendMessage(ChatColor.RED + args[1] + " could not be found.");
                 } else {
-                    hasLot(sender, oplayer);
+                    hasLot(sender, args[1], uuid);
                 }
                 return true;
             } else if (command.equalsIgnoreCase("tphome")
@@ -845,11 +860,12 @@ public class LotManagerPlugin extends JavaPlugin {
         // Alte Owner auslesen (fürs log)
         DefaultDomain oldOwners = wg.getRegionManager(this.server.getWorld(world)).getRegion(id).getOwners();
         String oldOwnernames = "";
-        for (String ownername: oldOwners.getPlayers()) {
-            oldOwnernames = oldOwnernames + " " + ownername;
+        
+        // Get Name List
+        for (UUID uuid: oldOwners.getUniqueIds()) {
+            oldOwnernames = oldOwnernames + " " + getServer().getOfflinePlayer(uuid).getName();
         }
         oldOwnernames = oldOwnernames.trim();
-
         // Owner und Member löschen
         DefaultDomain owners = new DefaultDomain();
         wg.getRegionManager(this.server.getWorld(world)).getRegion(id).setOwners(owners);
@@ -859,10 +875,10 @@ public class LotManagerPlugin extends JavaPlugin {
             refreshSigns(id);
         }
         sendInfo(sender, "\"" + id + "\" is now free again.");
-        logInfo("\"" + id + "\" is now free again. Old Owner: " + oldOwnernames);
+        logInfo("\"" + id + "\" is now free again. Old owner(s): " + oldOwnernames);
     }
 
-    public void hasLot(CommandSender sender, Player player) {
+    public void hasLot(CommandSender sender, String name, UUID uuid) {
         try {
             List<Lot> userlots;
             userlots = new ArrayList<Lot>();
@@ -875,9 +891,9 @@ public class LotManagerPlugin extends JavaPlugin {
                 regions = wg.getRegionManager(world).getRegions().values();
                 for (ProtectedRegion region: regions) {
                     if (this.lots.existsLot(WorldId, region.getId())) {
-                        Set<String> owners = region.getOwners().getPlayers();
-                        for (String owner: owners) {
-                            if (player.getName().equalsIgnoreCase(owner)) {
+                        Set<UUID> owners = region.getOwners().getUniqueIds();
+                        for (UUID owner: owners) {
+                            if (uuid.equals(owner)) {
                                 userlots.add(this.lots.getLot(WorldId, region.getId()));
                             }
                         }
@@ -892,7 +908,7 @@ public class LotManagerPlugin extends JavaPlugin {
                         groups.add(group);
                     }
                 }
-                sendInfo(sender, player.getName() + " owns:");
+                sendInfo(sender, name + " owns:");
                 for (LotGroup group: groups) {
                     sendInfo(sender, group.getId() + ":");
                     for (Lot lot: userlots) {
@@ -902,7 +918,7 @@ public class LotManagerPlugin extends JavaPlugin {
                     }
                 }
             } else {
-                sendInfo(sender, player.getName() + " doesn't own any lot.");
+                sendInfo(sender, name + " doesn't own any lot.");
             }
         } catch (Exception e) {
             logError(e.getMessage());
@@ -920,9 +936,9 @@ public class LotManagerPlugin extends JavaPlugin {
                 Collection<ProtectedRegion> regions = wg.getRegionManager(world).getRegions().values();
                 for (ProtectedRegion region: regions) {
                     if (this.lots.existsLot(WorldId, region.getId())) {
-                        Set<String> owners = region.getOwners().getPlayers();
-                        for (String owner: owners) {
-                            if (player.getName().equalsIgnoreCase(owner)) {
+                        Set<UUID> owners = region.getOwners().getUniqueIds();
+                        for (UUID owner: owners) {
+                            if (player.getUniqueId().equals(owner)) {
                                 userlots.add(this.lots.getLot(WorldId, region.getId()));
                             }
                         }
@@ -963,7 +979,7 @@ public class LotManagerPlugin extends JavaPlugin {
             for (ProtectedRegion region: regions) {
                 if (this.lots.existsLot(WorldId, region.getId())) {
                     DefaultDomain owners = region.getOwners();
-                    if (owners == null || owners.getPlayers().isEmpty()) {
+                    if (owners == null || owners.getUniqueIds().isEmpty()) {
                         return this.lots.getLot(WorldId, region.getId());
                     }
                 }
@@ -979,9 +995,9 @@ public class LotManagerPlugin extends JavaPlugin {
             Collection<ProtectedRegion> regions = wg.getRegionManager(world).getRegions().values();
             for (ProtectedRegion region: regions) {
                 if (this.lots.existsLot(WorldId, region.getId())) {
-                    Set<String> owners = region.getOwners().getPlayers();
-                    for (String owner: owners) {
-                        if (player.getName().equalsIgnoreCase(owner)) {
+                    Set<UUID> owners = region.getOwners().getUniqueIds();
+                    for (UUID owner: owners) {
+                        if (player.getUniqueId().equals(owner)) {
                             return this.lots.getLot(WorldId, region.getId());
                         }
                     }
@@ -994,7 +1010,7 @@ public class LotManagerPlugin extends JavaPlugin {
     public void tpToLot(Player player, String worldname, Lot lot) {
         Location loc = getTpLocationOfLot(lot);
         if (loc == null) {
-            sendError(player, "Das Grundstueck " + lot.getId() + " hat kein Teleport-Schild.");
+            sendError(player, "Es wurde ein Problem festgestellt: Das Grundstueck " + lot.getId() + " hat kein Teleport-Schild.");
         } else {
             player.teleport(loc);
         }
@@ -1002,6 +1018,9 @@ public class LotManagerPlugin extends JavaPlugin {
     
     public Location getTpLocationOfLot(Lot lot) {
         ArrayList<LotManagerSign> signs = this.Signs.getSigns(lot.getId());
+        if (signs == null) {
+            return null;
+        }
         for (LotManagerSign sign: signs) {
             if (sign.isTpSign()) {
                 Block block = sign.getBlock();
@@ -1119,9 +1138,9 @@ public class LotManagerPlugin extends JavaPlugin {
             for (ProtectedRegion _region: regions) {
                 if (this.lots.existsLot(_WorldId, _region.getId())) {
                     if (this.lots.getLot(_WorldId, _region.getId()).getGroup().getId().equalsIgnoreCase(group.getId())) {
-                        Set<String> owners = _region.getOwners().getPlayers();
-                        for (String owner: owners) {
-                            if (player.getName().equalsIgnoreCase(owner)) {
+                        Set<UUID> owners = _region.getOwners().getUniqueIds();
+                        for (UUID owner: owners) {
+                            if (player.getUniqueId().equals(owner)) {
                                 count += 1;
                             }
                         }
@@ -1159,7 +1178,7 @@ public class LotManagerPlugin extends JavaPlugin {
         logInfo(player.getName() + " is now the proud owner of \"" + id + "\".");
     }
 
-    public void allocateLot(String worldname, String id, OfflinePlayer player, Player sender) {
+    public void allocateLot(String worldname, String id, String name, UUID uuid, Player sender) {
         // Valid world?
         World world = null;
         try {
@@ -1196,7 +1215,7 @@ public class LotManagerPlugin extends JavaPlugin {
 
         // Add the user as owner to wg
         DefaultDomain owners = new DefaultDomain();
-        owners.addPlayer(this.wg.getWG().wrapPlayer(player.getPlayer()));
+        owners.addPlayer(uuid);
         this.wg.getRegionManager(world).getRegion(id).setOwners(owners);
         //DependencyUtils.getRegionManager(world).save();
 
@@ -1206,10 +1225,10 @@ public class LotManagerPlugin extends JavaPlugin {
         }
 
         // Success
-        sendInfo(sender, player.getName() + " is now the proud owner of \"" + id + "\".");
-        logInfo(player.getName() + " is now the proud owner of \"" + id + "\".");
-        if (player.isOnline()) {
-            sendInfo(player.getPlayer(), "You're now the proud owner of \"" + id + "\".");
+        sendInfo(sender, name + " is now the proud owner of \"" + id + "\".");
+        logInfo(name + " is now the proud owner of \"" + id + "\".");
+        if (getServer().getOfflinePlayer(uuid).isOnline()) {
+            sendInfo(getServer().getPlayer(uuid), "You're now the proud owner of \"" + id + "\".");
         }
     }
 
@@ -1286,12 +1305,12 @@ public class LotManagerPlugin extends JavaPlugin {
                         if (wgregion != null) {
                             DefaultDomain owners = wgregion.getOwners();
                             if (owners != null) {
-                                for (String player : owners.getPlayers()) {
-                                    User essuser = this.ess.getOfflineUser(player);
+                                for (UUID player : owners.getUniqueIds()) {
+                                    User essuser = this.ess.getUser(player);
                                     if (essuser != null) {
                                         final Date lastonline = new Date(essuser.getLastLogin());
                                         if (lastonline.before(cal.getTime())) {
-                                            this.sendInfo(sender, lot.getId() + " - " + player + " (" + lastonline.toString() + ")");
+                                            this.sendInfo(sender, lot.getId() + " - " + essuser.getDisplayName() + " (" + lastonline.toString() + ")");
                                             foundone = true;
                                         }
                                     }
@@ -1356,7 +1375,7 @@ public class LotManagerPlugin extends JavaPlugin {
             }
 
             // Get all owners of the region
-            Set<String> owners = wg.getRegionManager(world).getRegion(lotName).getOwners().getPlayers();
+            Set<UUID> owners = wg.getRegionManager(world).getRegion(lotName).getOwners().getUniqueIds();
 
             // Cut the Lotname
             String tLotName = null;
@@ -1370,7 +1389,8 @@ public class LotManagerPlugin extends JavaPlugin {
             final String mPlayerName;
             if (owners.size() > 0) {
                 // Get just the first owner in the list
-                String playerName = owners.toArray()[0].toString();
+                String playerName = "Unknown";
+                playerName = getServer().getOfflinePlayer(owners.toArray(new UUID[]{})[0]).getName();
 
                 // Cut the Playername
                 String tPlayerName = null;
@@ -1422,15 +1442,15 @@ public class LotManagerPlugin extends JavaPlugin {
         return false;
     }
 
-    public String getLotSignOwner(String lotName, World world) {
-        Set<String> owners = wg.getRegionManager(world).getRegion(lotName).getOwners().getPlayers();
+    public UUID getLotSignOwner(String lotName, World world) {
+        Set<UUID> owners = wg.getRegionManager(world).getRegion(lotName).getOwners().getUniqueIds();
         if (!owners.isEmpty()) {
-            final String playername = owners.toArray()[0].toString();
-            final OfflinePlayer player = getServer().getOfflinePlayer(playername);
+            final UUID playeruuid = owners.toArray(new UUID[]{})[0];
+            final OfflinePlayer player = getServer().getOfflinePlayer(playeruuid);
             if (player == null) {
-                return playername;
+                return playeruuid;
             } else {
-                return player.getName();
+                return player.getUniqueId();
             }
         }
         return null;

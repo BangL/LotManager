@@ -17,8 +17,8 @@
 package de.bangl.lm;
 
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-import com.sk89q.worldguard.protection.databases.ProtectionDatabaseException;
 import com.sk89q.worldguard.protection.managers.RegionManager;
+import com.sk89q.worldguard.protection.managers.storage.StorageException;
 import java.util.HashMap;
 import java.util.List;
 import org.bukkit.World;
@@ -48,7 +48,7 @@ public class WorldGuardWrapper {
         }
     }
 
-    public void save() throws ProtectionDatabaseException {
+    public void save() throws StorageException {
         for (RegionManager trm : this.rm.values()) {
             trm.save();
         }

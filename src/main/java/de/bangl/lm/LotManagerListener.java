@@ -16,6 +16,7 @@
  */
 package de.bangl.lm;
 
+import java.util.UUID;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -121,7 +122,7 @@ public class LotManagerListener implements Listener {
                 plugin.addSign(lotName, new LotManagerSign(event.getBlock(), false));
             }
 
-            plugin.refreshSigns(lotName, Boolean.valueOf(true));
+            plugin.refreshSigns(lotName, true);
 
             LotManagerPlugin.sendInfo(player, "Grundstueck-Schild aufgestellt.");
         }
@@ -138,12 +139,12 @@ public class LotManagerListener implements Listener {
             if (state instanceof Sign) {
                 final Sign sign = (Sign) state;
                 final String lotName = sign.getLine(1);
-                final String lotOwner = plugin.getLotSignOwner(lotName, block.getWorld());
+                final UUID lotOwner = plugin.getLotSignOwner(lotName, block.getWorld());
                 if (lotOwner != null) {
                     if (plugin.hasEssentials
                             && LotManagerPlugin.hasPermission(player, "essentials.seen")
                             && LotManagerPlugin.hasPermission(player, "lotmanager.user.sign.seen")) {
-                        plugin.getServer().dispatchCommand(player, "seen " + lotOwner);
+                        plugin.getServer().dispatchCommand(player, "seen " + plugin.getServer().getOfflinePlayer(lotOwner).getName());
                     } else {
                         LotManagerPlugin.sendInfo(player, "Das Grundstueck \"" + lotName + "\" gehoert \"" + sign.getLine(2) + "\".");
                     }
