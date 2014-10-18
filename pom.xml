@@ -58,6 +58,10 @@
             <id>sk89q-repo</id>
             <url>http://maven.sk89q.com/repo/</url>
         </repository>
+        <repository>
+            <id>ess-repo</id>
+            <url>http://repo.ess3.net/content/groups/essentials</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -86,9 +90,9 @@
             <type>jar</type>
         </dependency>
         <dependency>
-            <groupId>com.earth2me</groupId>
-            <artifactId>essentials</artifactId>
-            <version>2.14.98</version>
+            <groupId>net.ess3</groupId>
+            <artifactId>Essentials</artifactId>
+            <version>2.13-SNAPSHOT</version>
             <type>jar</type>
         </dependency>
     </dependencies>
